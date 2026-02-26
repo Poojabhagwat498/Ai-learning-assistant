@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import { Plus } from "lucide-react";
+import toast from "react-hot-toast";
 
-import quizService from '../../services/quizService';
-import aiService from '../../services/aiService';
-import Spinner from '../common/Spinner';
-import Button from '../common/Button';
-import Modal from '../common/Modal';
-import QuizCard from './QuizCard';
-import EmptyState from '../common/EmptyState';
+import quizService from "../../services/quizService";
+import aiService from "../../services/aiService";
+import Spinner from "../common/Spinner";
+import Modal from "../common/Modal";
+import QuizCard from "./QuizCard";
+import EmptyState from "../common/EmptyState";
 
 const QuizManager = ({ documentId }) => {
   const [quizzes, setQuizzes] = useState([]);
@@ -16,73 +15,63 @@ const QuizManager = ({ documentId }) => {
   const [generating, setGenerating] = useState(false);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [numQuestions, setNumQuestions] = useState(5);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [selectedQuiz, setSelectedQuiz] = useState(null);
 
+  /* ================= FETCH QUIZZES ================= */
   const fetchQuizzes = async () => {
-    setLoading(true);
     try {
-      const data = await quizService.getQuizzesForDocument(documentId);
-      setQuizzes(data.data);
+      setLoading(true);
+      const response = await quizService.getQuizzesForDocument(documentId);
+      setQuizzes(response.data);
     } catch (error) {
-      toast.error('Failed to fetch quizzes.');
-      console.error(error);
+      toast.error("Failed to fetch quizzes");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (documentId) {
-      fetchQuizzes();
-    }
+    if (documentId) fetchQuizzes();
   }, [documentId]);
 
+  /* ================= DELETE QUIZ ================= */
+  const handleDelete = async (quiz) => {
+    try {
+      await quizService.deleteQuiz(quiz._id);
+      toast.success("Quiz deleted successfully");
+
+      // remove from UI instantly
+      setQuizzes((prev) =>
+        prev.filter((q) => q._id !== quiz._id)
+      );
+    } catch (error) {
+      toast.error("Failed to delete quiz");
+    }
+  };
+
+  /* ================= GENERATE QUIZ ================= */
   const handleGenerateQuiz = async (e) => {
     e.preventDefault();
     setGenerating(true);
+
     try {
       await aiService.generateQuiz(documentId, { numQuestions });
-      toast.success('Quiz generated successfully!');
+      toast.success("Quiz generated successfully!");
       setIsGenerateModalOpen(false);
       fetchQuizzes();
     } catch (error) {
-      toast.error(error.message || 'Failed to generate quiz.');
+      toast.error(error.message || "Failed to generate quiz");
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleDeleteRequest = (quiz) => {
-    setSelectedQuiz(quiz);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!selectedQuiz) return;
-    setDeleting(true);
-    try {
-      await quizService.deleteQuiz(selectedQuiz._id);
-      toast.success(`${selectedQuiz.title || 'Quiz'} deleted.`);
-      setIsDeleteModalOpen(false);
-      setSelectedQuiz(null);
-      setQuizzes(quizzes.filter(q => q._id !== selectedQuiz._id));
-    } catch (error) {
-      toast.error(error.message || 'Failed to delete quiz');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const renderQuizContent = () => {
-    if (loading) {
-      return <Spinner />
-    }
+  /* ================= RENDER ================= */
+  const renderContent = () => {
+    if (loading) return <Spinner />;
 
     if (quizzes.length === 0) {
       return (
-        <EmptyState 
+        <EmptyState
           title="No Quizzes Yet"
           description="Generate a quiz from your document to test your knowledge."
           buttonText="Generate Quiz"
@@ -92,34 +81,41 @@ const QuizManager = ({ documentId }) => {
     }
 
     return (
-      <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
         {quizzes.map((quiz) => (
-          <QuizCard key={quiz._id} quiz={quiz} onDelete={handleDeleteRequest} />
+          <QuizCard
+            key={quiz._id}
+            quiz={quiz}
+            onDelete={handleDelete} 
+          />
         ))}
       </div>
     );
   };
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-6">
-      <div className="flex justify-end gap-2 mb-4">
-        <Button onClick={() => setIsGenerateModalOpen(true)}>
+    <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
+      
+      <div className="flex justify-end mb-6">
+        <button
+          onClick={() => setIsGenerateModalOpen(true)}
+          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition"
+        >
           <Plus size={16} />
           Generate Quiz
-        </Button>
+        </button>
       </div>
 
-      {renderQuizContent()}
+      {renderContent()}
 
-      {/* Generate Quiz Modal */}
       <Modal
         isOpen={isGenerateModalOpen}
         onClose={() => setIsGenerateModalOpen(false)}
-        title="Generate Quiz"
+        title="Generate New Quiz"
       >
-        <form onSubmit={handleGenerateQuiz} className="space-y-4">
+        <form onSubmit={handleGenerateQuiz} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
               Number of Questions
             </label>
             <input
@@ -127,53 +123,34 @@ const QuizManager = ({ documentId }) => {
               min="1"
               max="20"
               value={numQuestions}
-              onChange={(e) => setNumQuestions(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) =>
+                setNumQuestions(
+                  Math.max(1, parseInt(e.target.value) || 1)
+                )
+              }
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
+
+          <div className="flex justify-end gap-3">
+            <button
               type="button"
-              variant="secondary"
               onClick={() => setIsGenerateModalOpen(false)}
               disabled={generating}
+              className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
             >
               Cancel
-            </Button>
-            <Button type="submit" disabled={generating}>
-              {generating ? 'Generating...' : 'Generate'}
-            </Button>
+            </button>
+
+            <button
+              type="submit"
+              disabled={generating}
+              className="px-5 py-2 rounded-lg bg-emerald-500 text-white font-medium hover:bg-emerald-600 transition disabled:opacity-50"
+            >
+              {generating ? "Generating..." : "Generate"}
+            </button>
           </div>
         </form>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Delete Quiz"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-700">
-            Are you sure you want to delete this quiz? This action cannot be undone.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setIsDeleteModalOpen(false)}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-            >
-              {deleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </div>
-        </div>
       </Modal>
     </div>
   );

@@ -5,29 +5,25 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 py-8">
-        <div
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 animate-fadeIn">
+        
+        {/* Close Button */}
+        <button
           onClick={onClose}
-        />
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+        >
+          <X size={20} />
+        </button>
 
-        <div className="relative w-full max-w-lg bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-2xl shadow-xl">
-          <button
-            onClick={onClose}
-            className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
-          >
-            <X className="w-5 h-5" strokeWidth={2} />
-          </button>
+        {/* Title */}
+        {title && (
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+            {title}
+          </h2>
+        )}
 
-          <div className="mb-6 pr-8">
-            <h3 className="text-xl font-medium text-slate-900 tracking-tight">
-              {title}
-            </h3>
-          </div>
-
-          <div>{children}</div>
-        </div>
+        {children}
       </div>
     </div>
   );
