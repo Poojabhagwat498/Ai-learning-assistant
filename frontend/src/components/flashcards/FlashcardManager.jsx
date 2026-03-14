@@ -16,6 +16,15 @@ import Spinner from "../common/Spinner";
 import Modal from "../common/Modal";
 import Flashcard from "./Flashcard";
 
+const BRAND = "#0BAF8A";
+const BRAND_DARK = "#099972";
+
+const brandBtnStyle = { backgroundColor: BRAND, transition: "background-color 0.2s" };
+const brandHover = {
+  onMouseEnter: (e) => (e.currentTarget.style.backgroundColor = BRAND_DARK),
+  onMouseLeave: (e) => (e.currentTarget.style.backgroundColor = BRAND),
+};
+
 const FlashcardManager = ({ documentId }) => {
   const [flashcardSets, setFlashcardSets] = useState([]);
   const [selectedSet, setSelectedSet] = useState(null);
@@ -30,8 +39,7 @@ const FlashcardManager = ({ documentId }) => {
   const fetchFlashcardSets = async () => {
     setLoading(true);
     try {
-      const response =
-        await flashcardService.getFlashcardsForDocument(documentId);
+      const response = await flashcardService.getFlashcardsForDocument(documentId);
       setFlashcardSets(response.data);
     } catch (error) {
       toast.error("Failed to fetch flashcard sets.");
@@ -62,26 +70,19 @@ const FlashcardManager = ({ documentId }) => {
   const handleToggleStar = async (cardId) => {
     try {
       await flashcardService.toggleStar(cardId);
-
       const updatedSets = flashcardSets.map((set) => {
         if (set._id === selectedSet._id) {
           return {
             ...set,
             cards: set.cards.map((card) =>
-              card._id === cardId
-                ? { ...card, isStarred: !card.isStarred }
-                : card
+              card._id === cardId ? { ...card, isStarred: !card.isStarred } : card
             ),
           };
         }
         return set;
       });
-
       setFlashcardSets(updatedSets);
-      setSelectedSet(
-        updatedSets.find((set) => set._id === selectedSet._id)
-      );
-
+      setSelectedSet(updatedSets.find((set) => set._id === selectedSet._id));
       toast.success("Star updated!");
     } catch (error) {
       toast.error("Failed to update star.");
@@ -91,17 +92,13 @@ const FlashcardManager = ({ documentId }) => {
   /* ================= NAVIGATION ================= */
   const handleNextCard = () => {
     if (!selectedSet) return;
-    setCurrentCardIndex(
-      (prev) => (prev + 1) % selectedSet.cards.length
-    );
+    setCurrentCardIndex((prev) => (prev + 1) % selectedSet.cards.length);
   };
 
   const handlePrevCard = () => {
     if (!selectedSet) return;
     setCurrentCardIndex(
-      (prev) =>
-        (prev - 1 + selectedSet.cards.length) %
-        selectedSet.cards.length
+      (prev) => (prev - 1 + selectedSet.cards.length) % selectedSet.cards.length
     );
   };
 
@@ -114,13 +111,10 @@ const FlashcardManager = ({ documentId }) => {
 
   const handleConfirmDelete = async () => {
     if (!setToDelete) return;
-
     setDeleting(true);
     try {
       await flashcardService.deleteFlashcardSet(setToDelete._id);
-      setFlashcardSets((prev) =>
-        prev.filter((set) => set._id !== setToDelete._id)
-      );
+      setFlashcardSets((prev) => prev.filter((set) => set._id !== setToDelete._id));
       toast.success("Flashcard set deleted.");
       setIsDeleteModalOpen(false);
       setSetToDelete(null);
@@ -142,37 +136,62 @@ const FlashcardManager = ({ documentId }) => {
 
     return (
       <div className="max-w-3xl mx-auto space-y-8">
+        {/* Back link */}
         <button
           onClick={() => setSelectedSet(null)}
-          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium transition"
+          className="flex items-center gap-2 font-medium transition"
+          style={{ color: BRAND }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = BRAND_DARK)}
+          onMouseLeave={(e) => (e.currentTarget.style.color = BRAND)}
         >
           <ArrowLeft size={18} />
           Back to Sets
         </button>
 
         <div className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-3xl p-8 border border-slate-200">
-          <Flashcard
-            flashcard={currentCard}
-            onToggleStar={handleToggleStar}
-          />
+          <Flashcard flashcard={currentCard} onToggleStar={handleToggleStar} />
         </div>
 
         <div className="flex items-center justify-between">
+          {/* Previous */}
           <button
             onClick={handlePrevCard}
-            className="px-5 py-3 bg-white shadow-md rounded-xl flex items-center gap-2 hover:shadow-lg transition"
+            className="px-5 py-3 bg-white shadow-md rounded-xl flex items-center gap-2 hover:shadow-lg transition border"
+            style={{ color: BRAND, borderColor: `${BRAND}40` }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND;
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#fff";
+              e.currentTarget.style.color = BRAND;
+            }}
           >
             <ChevronLeft size={18} />
             Previous
           </button>
 
-          <span className="text-sm font-medium text-slate-600">
+          {/* Counter */}
+          <span
+            className="text-sm font-semibold tabular-nums px-4 py-1.5 rounded-full"
+            style={{ color: BRAND, backgroundColor: `${BRAND}18` }}
+          >
             {currentCardIndex + 1} / {selectedSet.cards.length}
           </span>
 
+          {/* Next */}
           <button
             onClick={handleNextCard}
-            className="px-5 py-3 bg-white shadow-md rounded-xl flex items-center gap-2 hover:shadow-lg transition"
+            className="px-5 py-3 bg-white shadow-md rounded-xl flex items-center gap-2 hover:shadow-lg transition border"
+            style={{ color: BRAND, borderColor: `${BRAND}40` }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND;
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#fff";
+              e.currentTarget.style.color = BRAND;
+            }}
           >
             Next
             <ChevronRight size={18} />
@@ -195,15 +214,14 @@ const FlashcardManager = ({ documentId }) => {
     if (flashcardSets.length === 0) {
       return (
         <div className="text-center py-24 space-y-6">
-          <Brain size={70} className="mx-auto text-indigo-500 opacity-70" />
-          <h3 className="text-2xl font-bold text-slate-800">
-            No Flashcards Yet
-          </h3>
-
+          <Brain size={70} className="mx-auto opacity-70" style={{ color: BRAND }} />
+          <h3 className="text-2xl font-bold text-slate-800">No Flashcards Yet</h3>
           <button
             onClick={handleGenerateFlashcards}
             disabled={generating}
-            className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl shadow-xl hover:scale-105 transition transform"
+            className="px-8 py-4 text-white rounded-2xl shadow-xl hover:scale-105 transition transform disabled:opacity-50"
+            style={brandBtnStyle}
+            {...brandHover}
           >
             {generating ? "Generating..." : "Generate Flashcards"}
           </button>
@@ -215,19 +233,19 @@ const FlashcardManager = ({ documentId }) => {
       <div className="space-y-10">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="text-2xl font-bold text-slate-800">
-              Your Flashcard Sets
-            </h3>
+            <h3 className="text-2xl font-bold text-slate-800">Your Flashcard Sets</h3>
             <p className="text-slate-500 mt-1">
-              {flashcardSets.length}{" "}
-              {flashcardSets.length === 1 ? "set" : "sets"} available
+              {flashcardSets.length} {flashcardSets.length === 1 ? "set" : "sets"} available
             </p>
           </div>
 
+          {/* New Set button */}
           <button
             onClick={handleGenerateFlashcards}
             disabled={generating}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white px-6 py-3 rounded-2xl shadow-lg transition"
+            className="flex items-center gap-2 text-white px-6 py-3 rounded-2xl shadow-lg transition disabled:opacity-50"
+            style={brandBtnStyle}
+            {...brandHover}
           >
             <Plus size={18} />
             {generating ? "Generating..." : "New Set"}
@@ -240,6 +258,9 @@ const FlashcardManager = ({ documentId }) => {
               key={set._id}
               onClick={() => handleSelectSet(set)}
               className="relative group bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition duration-300 cursor-pointer border border-slate-100"
+              style={{ "--hover-border": BRAND }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${BRAND}60`)}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "")}
             >
               <button
                 onClick={(e) => handleDeleteRequest(e, set)}
@@ -249,23 +270,25 @@ const FlashcardManager = ({ documentId }) => {
               </button>
 
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-2xl">
+                {/* Brain icon — brand colored */}
+                <div
+                  className="w-12 h-12 flex items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: `${BRAND}18`, color: BRAND }}
+                >
                   <Brain size={22} />
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-lg text-slate-800">
-                    Flashcard Set
-                  </h4>
+                  <h4 className="font-semibold text-lg text-slate-800">Flashcard Set</h4>
                   <p className="text-sm text-slate-500">
                     {moment(set.createdAt).format("MMM D, YYYY")}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-6 text-sm font-medium text-indigo-600">
-                {set.cards.length}{" "}
-                {set.cards.length === 1 ? "card" : "cards"}
+              {/* Card count — brand colored */}
+              <div className="mt-6 text-sm font-medium" style={{ color: BRAND }}>
+                {set.cards.length} {set.cards.length === 1 ? "card" : "cards"}
               </div>
             </div>
           ))}
@@ -276,14 +299,17 @@ const FlashcardManager = ({ documentId }) => {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50 p-8">
         {selectedSet ? renderFlashcardViewer() : renderSetList()}
 
+        {/* FAB — brand colored */}
         {!selectedSet && flashcardSets.length > 0 && (
           <button
             onClick={handleGenerateFlashcards}
             disabled={generating}
-            className="fixed bottom-10 right-10 w-16 h-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition transform"
+            className="fixed bottom-10 right-10 w-16 h-16 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition transform disabled:opacity-50"
+            style={brandBtnStyle}
+            {...brandHover}
           >
             <Plus size={26} />
           </button>
@@ -298,19 +324,17 @@ const FlashcardManager = ({ documentId }) => {
         <p className="mb-6 text-slate-600">
           This action cannot be undone. Are you sure you want to delete this set?
         </p>
-
         <div className="flex justify-end gap-4">
           <button
             onClick={() => setIsDeleteModalOpen(false)}
-            className="px-4 py-2 bg-slate-200 rounded-xl"
+            className="px-4 py-2 bg-slate-200 rounded-xl hover:bg-slate-300 transition"
           >
             Cancel
           </button>
-
           <button
             onClick={handleConfirmDelete}
             disabled={deleting}
-            className="px-5 py-2 bg-red-600 text-white rounded-xl shadow hover:bg-red-700 transition"
+            className="px-5 py-2 bg-red-600 text-white rounded-xl shadow hover:bg-red-700 transition disabled:opacity-50"
           >
             {deleting ? "Deleting..." : "Delete"}
           </button>

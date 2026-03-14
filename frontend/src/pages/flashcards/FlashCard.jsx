@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import flashcardService from '../../services/flashcardService';
@@ -18,8 +12,10 @@ import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import Flashcard from '../../components/flashcards/Flashcard';
 
-const FlashcardPage = () => {
+const BRAND = "#0BAF8A";
+const BRAND_DARK = "#099972";
 
+const FlashcardPage = () => {
   const { id: documentId } = useParams();
   const [flashcardSets, setFlashcardSets] = useState([]);
   const [flashcards, setFlashcards] = useState([]);
@@ -32,9 +28,7 @@ const FlashcardPage = () => {
   const fetchFlashcards = async () => {
     setLoading(true);
     try {
-      const response = await flashcardService.getFlashcardsForDocument(
-        documentId
-      );
+      const response = await flashcardService.getFlashcardsForDocument(documentId);
       setFlashcardSets(response.data[0]);
       setFlashcards(response.data[0]?.cards || []);
     } catch (error) {
@@ -45,9 +39,7 @@ const FlashcardPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchFlashcards();
-  }, [documentId]);
+  useEffect(() => { fetchFlashcards(); }, [documentId]);
 
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
@@ -63,25 +55,22 @@ const FlashcardPage = () => {
   };
 
   const handleNextCard = () => {
-    handleReview(currentCardIndex)
-    setCurrentCardIndex((prevIndex) => (prevIndex + 1) % flashcards.length);
+    handleReview(currentCardIndex);
+    setCurrentCardIndex((prev) => (prev + 1) % flashcards.length);
   };
 
   const handlePrevCard = () => {
-    handleReview(currentCardIndex)
-    setCurrentCardIndex(
-      (prevIndex) => (prevIndex - 1 + flashcards.length) % flashcards.length
-    );
+    handleReview(currentCardIndex);
+    setCurrentCardIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
   };
 
   const handleReview = async (index) => {
     const currentCard = flashcards[currentCardIndex];
     if (!currentCard) return;
-
     try {
       await flashcardService.reviewFlashcard(currentCard._id, index);
       toast.success("Flashcard reviewed!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to review flashcard.");
     }
   };
@@ -89,13 +78,11 @@ const FlashcardPage = () => {
   const handleToggleStar = async (cardId) => {
     try {
       await flashcardService.toggleStar(cardId);
-      setFlashcards((prevFlashcards) =>
-        prevFlashcards.map((card) =>
-          card._id === cardId ? { ...card, isStarred: !card.isStarred } : card
-        )
+      setFlashcards((prev) =>
+        prev.map((card) => card._id === cardId ? { ...card, isStarred: !card.isStarred } : card)
       );
       toast.success("Flashcard starred status updated!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to update star status.");
     }
   };
@@ -106,7 +93,7 @@ const FlashcardPage = () => {
       await flashcardService.deleteFlashcardSet(flashcardSets._id);
       toast.success("Flashcard set deleted successfully!");
       setIsDeleteModalOpen(false);
-      fetchFlashcards(); // Refetch to show empty state
+      fetchFlashcards();
     } catch (error) {
       toast.error(error.message || "Failed to delete flashcard set.");
     } finally {
@@ -114,10 +101,13 @@ const FlashcardPage = () => {
     }
   };
 
+  const brandBtn = {
+    backgroundColor: BRAND,
+    transition: "background-color 0.2s",
+  };
+
   const renderFlashcardContent = () => {
-    if (loading) {
-      return <Spinner />;
-    }
+    if (loading) return <Spinner />;
 
     if (flashcards.length === 0) {
       return (
@@ -136,21 +126,13 @@ const FlashcardPage = () => {
           <Flashcard flashcard={currentCard} onToggleStar={handleToggleStar} />
         </div>
         <div className="flex items-center gap-4">
-          <Button
-            onClick={handlePrevCard}
-            variant="secondary"
-            disabled={flashcards.length <= 1}
-          >
+          <Button onClick={handlePrevCard} variant="secondary" disabled={flashcards.length <= 1}>
             <ChevronLeft size={16} /> Previous
           </Button>
           <span className="text-sm text-neutral-600">
             {currentCardIndex + 1} / {flashcards.length}
           </span>
-          <Button
-            onClick={handleNextCard}
-            variant="secondary"
-            disabled={flashcards.length <= 1}
-          >
+          <Button onClick={handleNextCard} variant="secondary" disabled={flashcards.length <= 1}>
             Next <ChevronRight size={16} />
           </Button>
         </div>
@@ -168,29 +150,34 @@ const FlashcardPage = () => {
           <ArrowLeft size={16} /> Back to Document
         </Link>
       </div>
+
       <PageHeader title="Flashcards">
         <div className="flex gap-2">
-          {!loading &&
-            (flashcards.length > 0 ? (
-              <>
-                <Button
-                  onClick={() => setIsDeleteModalOpen(true)}
-                  disabled={deleting}
-                >
-                  <Trash2 size={16} /> Delete Set
-                </Button>
-              </>
+          {!loading && (
+            flashcards.length > 0 ? (
+              <button
+                onClick={() => setIsDeleteModalOpen(true)}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                style={brandBtn}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = BRAND_DARK}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = BRAND}
+              >
+                <Trash2 size={16} /> Delete Set
+              </button>
             ) : (
-              <Button onClick={handleGenerateFlashcards} disabled={generating}>
-                {generating ? (
-                  <Spinner />
-                ) : (
-                  <>
-                    <Plus size={16} /> Generate Flashcards
-                  </>
-                )}
-              </Button>
-            ))}
+              <button
+                onClick={handleGenerateFlashcards}
+                disabled={generating}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
+                style={brandBtn}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = BRAND_DARK}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = BRAND}
+              >
+                {generating ? <Spinner /> : <><Plus size={16} /> Generate Flashcards</>}
+              </button>
+            )
+          )}
         </div>
       </PageHeader>
 
@@ -203,8 +190,7 @@ const FlashcardPage = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-neutral-600">
-            Are you sure you want to delete all flashcards for this document?
-            This action cannot be undone.
+            Are you sure you want to delete all flashcards for this document? This action cannot be undone.
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button
