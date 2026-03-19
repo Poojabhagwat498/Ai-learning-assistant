@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { Plus, Video, Trash } from "lucide-react";
+import {
+  Plus,
+  Video,
+  Trash,
+  Users,
+  UserPlus,
+} from "lucide-react";
 import socket from "../socket";
+import toast from "react-hot-toast";
 
 const API = "http://localhost:8000/api";
 
@@ -10,27 +17,30 @@ const GroupStudy = () => {
   const [groupName, setGroupName] = useState("");
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState({});
+  const [openAddMember, setOpenAddMember] = useState({});
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  // =============================
-  // FETCH DATA
-  // =============================
+  // ================= FETCH =================
   useEffect(() => {
     fetchGroups();
     fetchUsers();
   }, []);
 
   const fetchGroups = async () => {
+    setLoading(true);
     try {
       const res = await axios.get(`${API}/groups`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setGroups(res.data);
     } catch (error) {
-      console.error("Fetch groups error:", error.response?.data || error.message);
+      toast.error("Failed to fetch groups");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,15 +51,16 @@ const GroupStudy = () => {
       });
       setUsers(res.data);
     } catch (error) {
-      console.error("Fetch users error:", error.response?.data || error.message);
+      toast.error("Failed to fetch users");
     }
   };
 
-  // =============================
-  // CREATE GROUP
-  // =============================
+  // ================= CREATE =================
   const createGroup = async () => {
-    if (!groupName.trim()) return;
+    if (!groupName.trim()) {
+      toast.error("Enter group name");
+      return;
+    }
 
     try {
       await axios.post(
@@ -58,36 +69,46 @@ const GroupStudy = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      toast.success("Group created");
       setGroupName("");
       fetchGroups();
     } catch (error) {
-      console.error("Create group error:", error.response?.data || error.message);
+      toast.error("Create failed");
     }
   };
 
-  // =============================
-  // ADD MEMBERS
-  // =============================
+  // ================= ADD MEMBERS =================
   const addMembers = async (groupId) => {
-    try {
-      for (let userId of selectedUsers) {
-        await axios.put(
-          `${API}/groups/${groupId}/members`,
-          { userId },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      }
+    const selected = selectedUsers[groupId] || [];
 
-      setSelectedUsers([]);
+    if (selected.length === 0) {
+      toast.error("Select users first");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        selected.map((userId) =>
+          axios.put(
+            `${API}/groups/${groupId}/members`,
+            { userId },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+        )
+      );
+
+      toast.success("Members added");
+
+      setSelectedUsers((prev) => ({ ...prev, [groupId]: [] }));
+      setOpenAddMember((prev) => ({ ...prev, [groupId]: false }));
+
       fetchGroups();
     } catch (error) {
-      console.error("Add member error:", error.response?.data || error.message);
+      toast.error("Add failed");
     }
   };
 
-  // =============================
-  // REMOVE MEMBER
-  // =============================
+  // ================= REMOVE =================
   const removeMember = async (groupId, userId) => {
     try {
       await axios.delete(
@@ -95,141 +116,186 @@ const GroupStudy = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      toast.success("Removed");
       fetchGroups();
     } catch (error) {
-      console.error("Remove member error:", error.response?.data || error.message);
+      toast.error("Remove failed");
     }
   };
 
-  // =============================
-  // DELETE GROUP
-  // =============================
+  // ================= DELETE =================
   const deleteGroup = async (groupId) => {
-    try {
-      await axios.delete(
-        `${API}/groups/${groupId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    if (!window.confirm("Delete this group?")) return;
 
+    try {
+      await axios.delete(`${API}/groups/${groupId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("Group deleted");
       fetchGroups();
     } catch (error) {
-      console.error("Delete group error:", error.response?.data || error.message);
+      toast.error("Delete failed");
     }
   };
 
-  // =============================
-  // JOIN GROUP (VIDEO)
-  // =============================
+  // ================= JOIN =================
   const joinGroup = (groupId) => {
     socket.emit("joinGroupRoom", groupId);
     navigate(`/video/${groupId}`);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Group Study</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white p-6">
+      <div className="max-w-5xl mx-auto space-y-8">
+        
+        {/* HEADER */}
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">
+            Group Study
+          </h1>
+          <p className="text-slate-500">
+            Create and collaborate with your study groups
+          </p>
+        </div>
 
-      {/* ================= CREATE GROUP ================= */}
-      <div className="bg-white p-6 rounded-xl shadow-md space-y-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Plus size={18} /> Create Group
-        </h2>
+        {/* CREATE GROUP */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+            <Plus size={18} /> Create New Group
+          </h2>
 
-        <input
-          type="text"
-          placeholder="Enter group name"
-          value={groupName}
-          onChange={(e) => setGroupName(e.target.value)}
-          className="w-full p-2 border rounded-lg"
-        />
-
-        <button
-          onClick={createGroup}
-          className="bg-emerald-500 text-white px-4 py-2 rounded-lg"
-        >
-          Create
-        </button>
-      </div>
-
-      {/* ================= GROUP LIST ================= */}
-      {groups.map((group) => (
-        <div
-          key={group._id}
-          className="bg-white p-6 rounded-xl shadow-md space-y-4"
-        >
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-lg">{group.name}</h2>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => joinGroup(group._id)}
-                className="bg-blue-500 text-white px-3 py-1 rounded-lg"
-              >
-                <Video size={16} />
-              </button>
-
-              <button
-                onClick={() => deleteGroup(group._id)}
-                className="bg-red-500 text-white px-3 py-1 rounded-lg"
-              >
-                <Trash size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* ================= MEMBERS ================= */}
-          <div>
-            <h3 className="font-medium mb-2">Members:</h3>
-            {group.members?.map((member) => (
-              <div
-                key={member._id}
-                className="flex justify-between items-center border p-2 rounded-lg"
-              >
-                <span>
-                  {member.name} ({member.email})
-                </span>
-
-                <button
-                  onClick={() =>
-                    removeMember(group._id, member._id)
-                  }
-                  className="text-red-500"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* ================= ADD MEMBERS ================= */}
-          <div className="flex gap-2">
-            <select
-              multiple
-              size={5}
-              value={selectedUsers}
-              onChange={(e) =>
-                setSelectedUsers(
-                  Array.from(e.target.selectedOptions, (o) => o.value)
-                )
-              }
-              className="w-full p-2 border rounded-lg h-32 overflow-y-auto"
-            >
-              {users.map((user) => (
-                <option key={user._id} value={user._id}>
-                  {user.name} ({user.email})
-                </option>
-              ))}
-            </select>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              placeholder="Enter group name..."
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              className="flex-1 h-11 px-4 border-2 border-slate-200 rounded-xl focus:border-emerald-500 outline-none"
+            />
 
             <button
-              onClick={() => addMembers(group._id)}
-              className="bg-emerald-500 text-white px-3 rounded-lg"
+              onClick={createGroup}
+              className="h-11 px-5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600"
             >
-              Add
+              Create
             </button>
           </div>
         </div>
-      ))}
+
+        {/* GROUPS */}
+        <div className="grid gap-6">
+          {groups.map((group) => (
+            <div
+              key={group._id}
+              className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5"
+            >
+              {/* HEADER */}
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Users size={18} /> {group.name}
+                </h2>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => joinGroup(group._id)}
+                    className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  >
+                    <Video size={16} />
+                  </button>
+
+                  <button
+                    onClick={() => deleteGroup(group._id)}
+                    className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  >
+                    <Trash size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* MEMBERS */}
+              <div>
+                <h3 className="font-medium mb-2">Members</h3>
+
+                <div className="space-y-2">
+                  {group.members?.length > 0 ? (
+                    group.members.map((member) => (
+                      <div
+                        key={member._id}
+                        className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg"
+                      >
+                        <span className="text-sm">
+                          {member.name} ({member.email})
+                        </span>
+
+                        <button
+                          onClick={() =>
+                            removeMember(group._id, member._id)
+                          }
+                          className="text-red-500 text-xs hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-400">
+                      No members yet
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* ADD MEMBERS BUTTON */}
+              <button
+                onClick={() =>
+                  setOpenAddMember((prev) => ({
+                    ...prev,
+                    [group._id]: !prev[group._id],
+                  }))
+                }
+                className="flex items-center gap-2 text-emerald-600 font-medium"
+              >
+                <UserPlus size={16} /> Add Members
+              </button>
+
+              {/* CONDITIONAL DROPDOWN */}
+              {openAddMember[group._id] && (
+                <div className="flex gap-3">
+                  <select
+                    multiple
+                    size={4}
+                    value={selectedUsers[group._id] || []}
+                    onChange={(e) =>
+                      setSelectedUsers((prev) => ({
+                        ...prev,
+                        [group._id]: Array.from(
+                          e.target.selectedOptions,
+                          (o) => o.value
+                        ),
+                      }))
+                    }
+                    className="flex-1 border rounded-lg p-2 max-h-32 overflow-y-auto"
+                  >
+                    {users.map((user) => (
+                      <option key={user._id} value={user._id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={() => addMembers(group._id)}
+                    className="bg-emerald-500 text-white px-4 rounded-lg hover:bg-emerald-600"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
