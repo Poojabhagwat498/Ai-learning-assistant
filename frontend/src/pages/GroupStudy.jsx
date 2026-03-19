@@ -8,7 +8,6 @@ import {
   Users,
   UserPlus,
 } from "lucide-react";
-import socket from "../socket";
 import toast from "react-hot-toast";
 
 const API = "http://localhost:8000/api";
@@ -55,7 +54,7 @@ const GroupStudy = () => {
     }
   };
 
-  // ================= CREATE =================
+  // ================= CREATE GROUP =================
   const createGroup = async () => {
     if (!groupName.trim()) {
       toast.error("Enter group name");
@@ -77,7 +76,7 @@ const GroupStudy = () => {
     }
   };
 
-  // ================= ADD MEMBERS =================
+  // ================= SEND REQUEST (UPDATED) =================
   const addMembers = async (groupId) => {
     const selected = selectedUsers[groupId] || [];
 
@@ -89,26 +88,25 @@ const GroupStudy = () => {
     try {
       await Promise.all(
         selected.map((userId) =>
-          axios.put(
-            `${API}/groups/${groupId}/members`,
+          axios.post(
+            `${API}/groups/${groupId}/request`,
             { userId },
             { headers: { Authorization: `Bearer ${token}` } }
           )
         )
       );
 
-      toast.success("Members added");
+      toast.success("Request sent");
 
       setSelectedUsers((prev) => ({ ...prev, [groupId]: [] }));
       setOpenAddMember((prev) => ({ ...prev, [groupId]: false }));
 
-      fetchGroups();
     } catch (error) {
-      toast.error("Add failed");
+      toast.error("Failed to send request");
     }
   };
 
-  // ================= REMOVE =================
+  // ================= REMOVE MEMBER =================
   const removeMember = async (groupId, userId) => {
     try {
       await axios.delete(
@@ -123,7 +121,7 @@ const GroupStudy = () => {
     }
   };
 
-  // ================= DELETE =================
+  // ================= DELETE GROUP =================
   const deleteGroup = async (groupId) => {
     if (!window.confirm("Delete this group?")) return;
 
@@ -139,16 +137,16 @@ const GroupStudy = () => {
     }
   };
 
-  // ================= JOIN =================
+  // ================= JOIN VIDEO =================
   const joinGroup = (groupId) => {
-    socket.emit("joinGroupRoom", groupId);
+    // 🚀 Only navigate (Socket handled inside VideoRoom)
     navigate(`/video/${groupId}`);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white p-6">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+
         {/* HEADER */}
         <div>
           <h1 className="text-3xl font-bold text-slate-800">
@@ -183,7 +181,19 @@ const GroupStudy = () => {
           </div>
         </div>
 
-        {/* GROUPS */}
+        {/* LOADING */}
+        {loading && (
+          <p className="text-center text-slate-500">Loading groups...</p>
+        )}
+
+        {/* EMPTY */}
+        {!loading && groups.length === 0 && (
+          <p className="text-center text-slate-400">
+            No groups found 🚀
+          </p>
+        )}
+
+        {/* GROUP LIST */}
         <div className="grid gap-6">
           {groups.map((group) => (
             <div
@@ -197,6 +207,7 @@ const GroupStudy = () => {
                 </h2>
 
                 <div className="flex gap-2">
+                  {/* 🎥 JOIN VIDEO */}
                   <button
                     onClick={() => joinGroup(group._id)}
                     className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -204,6 +215,7 @@ const GroupStudy = () => {
                     <Video size={16} />
                   </button>
 
+                  {/* 🗑 DELETE */}
                   <button
                     onClick={() => deleteGroup(group._id)}
                     className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
@@ -246,7 +258,7 @@ const GroupStudy = () => {
                 </div>
               </div>
 
-              {/* ADD MEMBERS BUTTON */}
+              {/* ADD MEMBERS */}
               <button
                 onClick={() =>
                   setOpenAddMember((prev) => ({
@@ -259,7 +271,7 @@ const GroupStudy = () => {
                 <UserPlus size={16} /> Add Members
               </button>
 
-              {/* CONDITIONAL DROPDOWN */}
+              {/* DROPDOWN */}
               {openAddMember[group._id] && (
                 <div className="flex gap-3">
                   <select
@@ -288,7 +300,7 @@ const GroupStudy = () => {
                     onClick={() => addMembers(group._id)}
                     className="bg-emerald-500 text-white px-4 rounded-lg hover:bg-emerald-600"
                   >
-                    Add
+                    Send Request
                   </button>
                 </div>
               )}

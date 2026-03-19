@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import socket from "../socket";
+import socket from "../utils/socket";
 
 const Meeting = () => {
   const { groupId } = useParams();

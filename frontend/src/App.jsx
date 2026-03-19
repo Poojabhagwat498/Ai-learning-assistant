@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 
 import LoginPage from "./pages/Auth/LoginPage";
@@ -14,8 +14,6 @@ import DocumentDetailPage from "./pages/documents/DocumentDetailPage";
 import FlashCardList from "./pages/flashcards/FlashCardList";
 import FlashCard from "./pages/flashcards/FlashCard";
 
-
-
 import QuizTake from "./pages/quizzes/QuizTake";
 import QuizResult from "./pages/quizzes/QuizResult";
 
@@ -25,16 +23,30 @@ import NotFoundPage from "./pages/NotFoundPage";
 import TodoPage from "./pages/TodoPage";
 import GroupStudy from "./pages/GroupStudy";
 import Meeting from "./pages/Meeting";
+import Requests from "./pages/Requests";
 
 import { useAuth } from "./context/AuthContext";
+import socket from "./utils/socket";
 
 const App = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
+  // 🔥 CONNECT USER TO SOCKET ROOM (REAL-TIME NOTIFICATIONS)
+  useEffect(() => {
+    if (user?._id) {
+      socket.emit("joinUserRoom", user._id);
+    }
+
+    return () => {
+      socket.off("connect");
+    };
+  }, [user]);
+
+  // ⏳ Loading screen
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p>Loading...</p>
+        <p className="text-slate-500">Loading...</p>
       </div>
     );
   }
@@ -43,7 +55,7 @@ const App = () => {
     <Router>
       <Routes>
 
-        {/* Public Routes */}
+        {/* ================= PUBLIC ROUTES ================= */}
         <Route
           path="/"
           element={
@@ -52,6 +64,7 @@ const App = () => {
               : <Navigate to="/login" replace />
           }
         />
+
         <Route
           path="/login"
           element={
@@ -60,6 +73,7 @@ const App = () => {
               : <LoginPage />
           }
         />
+
         <Route
           path="/register"
           element={
@@ -69,34 +83,43 @@ const App = () => {
           }
         />
 
-        {/* Protected Routes */}
+        {/* ================= PROTECTED ROUTES ================= */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
 
             <Route path="/dashboard" element={<Dashboard />} />
 
+            {/* Documents */}
             <Route path="/documents" element={<DocumentListPage />} />
             <Route path="/documents/:id" element={<DocumentDetailPage />} />
 
+            {/* Flashcards */}
             <Route path="/flashcards" element={<FlashCardList />} />
             <Route path="/documents/:id/flashcards" element={<FlashCard />} />
 
+            {/* Quizzes */}
             <Route path="/quizzes/:quizId" element={<QuizTake />} />
             <Route path="/quizzes/:quizId/results" element={<QuizResult />} />
 
+            {/* Todo */}
             <Route path="/todos" element={<TodoPage />} />
 
+            {/* Group Study */}
             <Route path="/group-study" element={<GroupStudy />} />
 
-            {/* Video / Meeting Route */}
+            {/* 🔔 Requests */}
+            <Route path="/requests" element={<Requests />} />
+
+            {/* 🎥 Video Meeting */}
             <Route path="/video/:groupId" element={<Meeting />} />
 
+            {/* Profile */}
             <Route path="/profile" element={<ProfilePage />} />
 
           </Route>
         </Route>
 
-        {/* 404 */}
+        {/* ================= 404 ================= */}
         <Route path="*" element={<NotFoundPage />} />
 
       </Routes>

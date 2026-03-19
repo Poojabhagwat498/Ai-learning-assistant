@@ -79,6 +79,11 @@ export const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
+  // ✅ JOIN USER ROOM (IMPORTANT)
+  socket.on("joinUserRoom", (userId) => {
+    socket.join(userId);
+  });
+
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
   });

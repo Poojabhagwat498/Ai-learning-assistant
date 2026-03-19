@@ -1,6 +1,7 @@
 import React from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Bell, User, Menu } from "lucide-react";
+import { User, Menu } from "lucide-react";
+import NotificationBell from "../NotificationBell";
 
 const Header = ({ toggleSidebar }) => {
   const { user } = useAuth();
@@ -15,32 +16,20 @@ const Header = ({ toggleSidebar }) => {
           className="md:hidden inline-flex items-center justify-center w-10 h-10
           text-slate-600 hover:text-slate-900 hover:bg-slate-100
           rounded-xl transition-all duration-200"
-          aria-label="Toggle sidebar"
         >
           <Menu size={24} />
         </button>
 
-        {/* Spacer (keeps right side aligned on desktop) */}
+        {/* Spacer */}
         <div className="hidden md:block" />
 
-        {/* Right actions */}
-        <div className="flex items-center gap-3">
-          
-          {/* Notifications */}
-          <button
-            className="relative inline-flex items-center justify-center w-10 h-10
-            text-slate-600 hover:text-slate-900 hover:bg-slate-100
-            rounded-xl transition-all duration-200 group"
-          >
-            <Bell
-              size={20}
-              strokeWidth={2}
-              className="transition-transform duration-200 group-hover:scale-110"
-            />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white" />
-          </button>
+        {/* Right side */}
+        <div className="flex items-center gap-4">
 
-          {/* User info */}
+          {/* 🔔 REAL-TIME NOTIFICATION BELL */}
+          <NotificationBell />
+
+          {/* USER */}
           <div className="flex items-center gap-3 pl-3 border-l border-slate-200/60">
             <div
               className="flex items-center gap-3 px-3 py-1.5 rounded-xl
