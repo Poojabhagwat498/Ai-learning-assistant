@@ -7,7 +7,12 @@ const login = async (email, password) => {
       email,
       password,
     });
-    return response.data;
+
+    // 🔥 HANDLE BOTH CASES
+    const data = response.data.data || response.data;
+
+    return data; // { token, user }
+
   } catch (error) {
     throw error.response?.data || { message: 'An unknown error occurred' };
   }

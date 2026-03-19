@@ -25,9 +25,18 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      const { token, user } = await authService.login(email, password);
+   const res = await authService.login(email, password);
 
-      login(user, token);
+console.log("LOGIN RESPONSE:", res); // 🔍 DEBUG
+
+const token = res.token;
+const user = res.user;
+
+if (!token) {
+  throw new Error("Token not received");
+}
+
+    login(user, token);
 
       toast.success("Logged in successfully!");
 

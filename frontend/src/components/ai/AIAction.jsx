@@ -13,13 +13,23 @@ const AIAction = () => {
   const [modalContent, setModalContent] = useState("");
   const [modalTitle, setModalTitle] = useState("");
   const [concept, setConcept] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  // 🔹 Prevent UI overload
+  const truncateText = (text, maxLength = 1500) => {
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    return text.slice(0, maxLength) + "\n\n*(Content truncated)*";
+  };
 
   const handleGenerateSummary = async () => {
     setLoadingAction("summary");
     try {
       const { summary } = await aiService.generateSummary(documentId);
+
       setModalTitle("Generated Summary");
-      setModalContent(summary);
+      setModalContent(truncateText(summary));
+      setExpanded(false);
       setIsModalOpen(true);
     } catch (error) {
       toast.error("Failed to generate summary.");
@@ -42,8 +52,10 @@ const AIAction = () => {
         documentId,
         concept
       );
+
       setModalTitle(`Explanation of "${concept}"`);
-      setModalContent(explanation);
+      setModalContent(truncateText(explanation));
+      setExpanded(false);
       setIsModalOpen(true);
       setConcept("");
     } catch (error) {
@@ -91,13 +103,18 @@ const AIAction = () => {
                 </p>
               </div>
 
-              <button
-                onClick={handleGenerateSummary}
-                disabled={loadingAction === "summary"}
-                className="h-11 px-5 bg-linear-to-r from-emerald-600 to-emerald-500 text-white font-medium rounded-xl shadow-sm hover:shadow transition disabled:opacity-50"
-              >
-                {loadingAction === "summary" ? "Loading..." : "Summarize"}
-              </button>
+              {loadingAction === "summary" ? (
+                <div className="h-11 px-5 flex items-center justify-center bg-gray-200 rounded-xl animate-pulse">
+                  Generating...
+                </div>
+              ) : (
+                <button
+                  onClick={handleGenerateSummary}
+                  className="h-11 px-5 bg-linear-to-r from-emerald-600 to-emerald-500 text-white font-medium rounded-xl shadow-sm hover:shadow transition"
+                >
+                  Summarize
+                </button>
+              )}
             </div>
           </div>
 
@@ -135,7 +152,9 @@ const AIAction = () => {
                     }
                     className="h-11 px-5 bg-linear-to-r from-emerald-600 to-emerald-500 text-white font-medium rounded-xl shadow-sm hover:shadow transition disabled:opacity-50"
                   >
-                    {loadingAction === "explain" ? "Loading..." : "Explain"}
+                    {loadingAction === "explain"
+                      ? "Loading..."
+                      : "Explain"}
                   </button>
                 </div>
               </div>
@@ -147,7 +166,8 @@ const AIAction = () => {
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl p-6 relative">
+          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-xl p-6 relative max-h-[80vh] flex flex-col">
+            
             <button
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
@@ -155,11 +175,30 @@ const AIAction = () => {
               ✕
             </button>
 
-            <h3 className="text-xl font-semibold mb-4">{modalTitle}</h3>
+            <h3 className="text-xl font-semibold mb-4">
+              {modalTitle}
+            </h3>
 
-            <div className="prose max-w-none">
-              <MarkdownRenderer content={modalContent} />
+            {/* Scrollable Content */}
+            <div className="prose max-w-none overflow-y-auto pr-2">
+              <MarkdownRenderer
+                content={
+                  expanded
+                    ? modalContent
+                    : modalContent.slice(0, 1000) + "..."
+                }
+              />
             </div>
+
+            {/* Read More */}
+            {modalContent.length > 1000 && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="mt-3 text-emerald-600 font-medium"
+              >
+                {expanded ? "Show Less" : "Read More"}
+              </button>
+            )}
           </div>
         </div>
       )}
