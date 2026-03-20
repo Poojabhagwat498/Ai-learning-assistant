@@ -9,9 +9,19 @@ const Requests = () => {
   const [requests, setRequests] = useState([]);
   const token = localStorage.getItem("token");
 
- useEffect(() => {
-  socket.on("newRequest", fetchRequests);
-  return () => socket.off("newRequest");
+useEffect(() => {
+  fetchRequests(); // ✅ IMPORTANT
+
+  const handleNewRequest = () => {
+    console.log("🔥 New request received");
+    fetchRequests();
+  };
+
+  socket.on("newRequest", handleNewRequest);
+
+  return () => {
+    socket.off("newRequest", handleNewRequest);
+  };
 }, []);
 
   const fetchRequests = async () => {

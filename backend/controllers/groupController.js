@@ -108,9 +108,9 @@ export const acceptRequest = async (req, res) => {
       $addToSet: { members: request.receiver },
     });
 
-    io.to(request.groupId.toString()).emit("memberAdded", {
-      userId: request.receiver,
-    });
+   io.to(request.receiver.toString()).emit("requestAccepted", {
+  groupId: request.groupId,
+});
 
     res.json({ message: "Joined group" });
   } catch (error) {

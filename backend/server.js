@@ -4,7 +4,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath } from "url"; // ✅ FIXED TYPO
 import http from "http";
 import { Server } from "socket.io";
 
@@ -27,35 +27,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
-// =======================
-// ✅ Connect Database
-// =======================
 connectDB();
 
-// =======================
-// ✅ CORS Configuration (FIXED)
-// =======================
-const corsOptions = {
-  origin: "http://localhost:5173", // your frontend
+app.use(cors({
+  origin: "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-};
+}));
 
-app.use(cors(corsOptions));
-
-// =======================
-// ✅ Middlewares
-// =======================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// =======================
-// ✅ Routes
-// =======================
 app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/flashcards", flashcardRoutes);
@@ -67,85 +52,77 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/users", userRoutes);
 
 // =======================
-// ✅ Socket.IO Setup (FIXED)
+// ✅ SOCKET.IO FINAL
 // =======================
 export const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("🔌 User connected:", socket.id);
 
-  // ✅ JOIN USER ROOM (IMPORTANT)
+  // ✅ Join user room (for notifications)
   socket.on("joinUserRoom", (userId) => {
     socket.join(userId);
+    console.log("✅ Joined user room:", userId);
   });
 
+  // ✅ Join meeting room
   socket.on("joinRoom", (roomId) => {
     socket.join(roomId);
+
+    // 🔥 notify others
+    socket.to(roomId).emit("userJoined", {
+      userId: socket.id,
+    });
+
+    console.log("👥 Joined meeting room:", roomId);
   });
 
-  socket.on("registerUser", (userId) => {
-    socket.join(userId);
-  });
-
-  socket.on("memberAdded", ({ userId, message }) => {
-    io.to(userId).emit("notifyMember", { message });
-  });
+  // ================= WebRTC =================
 
   socket.on("offer", ({ roomId, offer }) => {
-    socket.to(roomId).emit("offer", offer);
+    socket.to(roomId).emit("offer", {
+      offer,
+      from: socket.id,
+    });
   });
 
   socket.on("answer", ({ roomId, answer }) => {
-    socket.to(roomId).emit("answer", answer);
+    socket.to(roomId).emit("answer", {
+      answer,
+      from: socket.id,
+    });
   });
 
   socket.on("ice-candidate", ({ roomId, candidate }) => {
-    socket.to(roomId).emit("ice-candidate", candidate);
+    socket.to(roomId).emit("ice-candidate", {
+      candidate,
+      from: socket.id,
+    });
   });
 
-  socket.on("joinGroupRoom", (groupId) => {
-    socket.join(groupId);
-    console.log(`Socket joined group room: ${groupId}`);
+  // ================= CHAT =================
+  socket.on("chatMessage", (data) => {
+    socket.to(data.roomId).emit("chatMessage", data);
   });
 
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    console.log("❌ User disconnected:", socket.id);
   });
 });
 
-// =======================
-// ✅ Error Handler
 // =======================
 app.use(errorHandler);
 
-// 404 Handler
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: "Route not found",
-  });
+  res.status(404).json({ success: false, error: "Route not found" });
 });
 
-// =======================
-// ✅ Start Server
-// =======================
 const PORT = process.env.PORT || 8000;
 
 server.listen(PORT, () => {
-  console.log(
-    `Server running in ${
-      process.env.NODE_ENV || "development"
-    } mode on port ${PORT}`
-  );
-});
-
-// Handle unhandled promise rejections
-process.on("unhandledRejection", (err) => {
-  console.error(`Unhandled Rejection: ${err.message}`);
-  server.close(() => process.exit(1));
+  console.log(`🚀 Server running on port ${PORT}`);
 });

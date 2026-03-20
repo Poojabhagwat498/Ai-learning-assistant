@@ -25,6 +25,7 @@ const GroupStudy = () => {
 
   // ================= FETCH =================
   useEffect(() => {
+
     fetchGroups();
     fetchUsers();
   }, []);

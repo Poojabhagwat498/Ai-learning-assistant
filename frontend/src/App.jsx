@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import LoginPage from "./pages/Auth/LoginPage";
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -28,18 +28,35 @@ import Requests from "./pages/Requests";
 import { useAuth } from "./context/AuthContext";
 import socket from "./utils/socket";
 
+/* =========================
+   🔥 SOCKET LISTENER WRAPPER
+========================= */
+const SocketHandler = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // ✅ When request accepted → go to video
+    socket.on("requestAccepted", ({ groupId }) => {
+      console.log("🔥 Redirecting to video:", groupId);
+      navigate(`/video/${groupId}`);
+    });
+
+    return () => {
+      socket.off("requestAccepted");
+    };
+  }, [navigate]);
+
+  return null;
+};
+
 const App = () => {
   const { isAuthenticated, loading, user } = useAuth();
 
-  // 🔥 CONNECT USER TO SOCKET ROOM (REAL-TIME NOTIFICATIONS)
+  // 🔥 JOIN USER ROOM
   useEffect(() => {
     if (user?._id) {
       socket.emit("joinUserRoom", user._id);
     }
-
-    return () => {
-      socket.off("connect");
-    };
   }, [user]);
 
   // ⏳ Loading screen
@@ -53,9 +70,13 @@ const App = () => {
 
   return (
     <Router>
+
+      {/* 🔥 GLOBAL SOCKET HANDLER */}
+      <SocketHandler />
+
       <Routes>
 
-        {/* ================= PUBLIC ROUTES ================= */}
+        {/* ================= PUBLIC ================= */}
         <Route
           path="/"
           element={
@@ -83,7 +104,7 @@ const App = () => {
           }
         />
 
-        {/* ================= PROTECTED ROUTES ================= */}
+        {/* ================= PROTECTED ================= */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
 
@@ -107,10 +128,10 @@ const App = () => {
             {/* Group Study */}
             <Route path="/group-study" element={<GroupStudy />} />
 
-            {/* 🔔 Requests */}
+            {/* Requests */}
             <Route path="/requests" element={<Requests />} />
 
-            {/* 🎥 Video Meeting */}
+            {/* 🎥 Video */}
             <Route path="/video/:groupId" element={<Meeting />} />
 
             {/* Profile */}

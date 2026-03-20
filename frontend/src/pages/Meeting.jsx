@@ -15,7 +15,6 @@ const Meeting = () => {
   const [chatInput, setChatInput] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
-  const [isStarted, setIsStarted] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -24,66 +23,50 @@ const Meeting = () => {
   };
 
   // =========================
-  // 🔹 Initialize Media SAFELY
+  // 🎥 INIT MEDIA
   // =========================
   const initMedia = async () => {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-
-      const hasCamera = devices.some(d => d.kind === "videoinput");
-      const hasMic = devices.some(d => d.kind === "audioinput");
-
-      if (!hasCamera && !hasMic) {
-        alert("No camera or microphone found.");
-        return;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: hasCamera,
-        audio: hasMic,
+        video: true,
+        audio: true,
       });
 
-      setLocalStream(stream);     // ✅ store stream
-      setIsStarted(true);         // ✅ render video elements
+      setLocalStream(stream);
 
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      return stream;
     } catch (err) {
       console.error("Media error:", err);
-
-      if (err.name === "NotFoundError") {
-        alert("Camera or microphone not connected.");
-      } else if (err.name === "NotAllowedError") {
-        alert("Permission denied. Please allow camera & mic.");
-      } else {
-        alert("Media device error occurred.");
-      }
+      alert("Allow camera & mic permissions");
     }
   };
 
   // =========================
-  // 🔹 Attach Stream AFTER Video Renders
+  // 🔗 CREATE PEER
   // =========================
-  useEffect(() => {
-    if (!localStream || !isStarted) return;
+  const createPeerConnection = (stream) => {
+    if (peerConnection.current) return peerConnection.current;
 
-    // Attach local stream
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
-    }
+    const pc = new RTCPeerConnection(servers);
 
-    // Create peer connection
-    peerConnection.current = new RTCPeerConnection(servers);
-
-    localStream.getTracks().forEach(track => {
-      peerConnection.current.addTrack(track, localStream);
+    // add tracks
+    stream.getTracks().forEach((track) => {
+      pc.addTrack(track, stream);
     });
 
-    peerConnection.current.ontrack = (event) => {
+    // receive remote stream
+    pc.ontrack = (event) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
-    peerConnection.current.onicecandidate = (event) => {
+    // send ICE
+    pc.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", {
           roomId: groupId,
@@ -92,44 +75,70 @@ const Meeting = () => {
       }
     };
 
-  }, [localStream, isStarted]);
+    peerConnection.current = pc;
+    return pc;
+  };
 
   // =========================
-  // 🔹 Create Offer
+  // 📡 CREATE OFFER
   // =========================
   const createOffer = async () => {
-    if (!peerConnection.current) return;
+    if (!localStream) return;
 
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
+    const pc = createPeerConnection(localStream);
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
 
     socket.emit("offer", { roomId: groupId, offer });
   };
 
   // =========================
-  // 🔹 Socket Events
+  // 🔌 SOCKET EVENTS
   // =========================
   useEffect(() => {
-    socket.emit("joinRoom", groupId);
-    socket.emit("joinGroupRoom", groupId);
-    socket.emit("registerUser", user?._id);
+    if (!groupId) return;
 
-    socket.on("offer", async (offer) => {
-      if (!peerConnection.current) return;
+    let stream;
 
-      await peerConnection.current.setRemoteDescription(offer);
+    const setup = async () => {
+      // join rooms
+      socket.emit("joinRoom", groupId);
+      socket.emit("joinUserRoom", user?._id);
 
-      const answer = await peerConnection.current.createAnswer();
-      await peerConnection.current.setLocalDescription(answer);
+      // start camera first
+      stream = await initMedia();
+    };
+
+    setup();
+
+    // ===== USER JOINED =====
+    socket.on("userJoined", () => {
+      createOffer();
+    });
+
+    // ===== OFFER =====
+    socket.on("offer", async ({ offer }) => {
+      const stream = localStream || (await initMedia());
+
+      const pc = createPeerConnection(stream);
+
+      await pc.setRemoteDescription(offer);
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
 
       socket.emit("answer", { roomId: groupId, answer });
     });
 
-    socket.on("answer", async (answer) => {
-      await peerConnection.current?.setRemoteDescription(answer);
+    // ===== ANSWER =====
+    socket.on("answer", async ({ answer }) => {
+      if (!peerConnection.current) return;
+      await peerConnection.current.setRemoteDescription(answer);
     });
 
-    socket.on("ice-candidate", async (candidate) => {
+    // ===== ICE =====
+    socket.on("ice-candidate", async ({ candidate }) => {
       try {
         await peerConnection.current?.addIceCandidate(candidate);
       } catch (err) {
@@ -137,38 +146,40 @@ const Meeting = () => {
       }
     });
 
-    socket.on("userJoined", () => {
-      createOffer();
-    });
-
+    // ===== CHAT =====
     socket.on("chatMessage", (data) => {
-      setMessages(prev => [...prev, data]);
+      setMessages((prev) => [...prev, data]);
     });
 
     return () => {
+      socket.off("userJoined");
       socket.off("offer");
       socket.off("answer");
       socket.off("ice-candidate");
-      socket.off("userJoined");
       socket.off("chatMessage");
+
+      peerConnection.current?.close();
+      peerConnection.current = null;
+
+      localStream?.getTracks().forEach((t) => t.stop());
     };
   }, [groupId]);
 
   // =========================
-  // 🔹 Controls
+  // 🎛 CONTROLS
   // =========================
   const toggleMute = () => {
-    const audioTrack = localStream?.getAudioTracks()[0];
-    if (!audioTrack) return;
-    audioTrack.enabled = !audioTrack.enabled;
-    setIsMuted(!audioTrack.enabled);
+    const track = localStream?.getAudioTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    setIsMuted(!track.enabled);
   };
 
   const toggleCamera = () => {
-    const videoTrack = localStream?.getVideoTracks()[0];
-    if (!videoTrack) return;
-    videoTrack.enabled = !videoTrack.enabled;
-    setIsCameraOff(!videoTrack.enabled);
+    const track = localStream?.getVideoTracks()[0];
+    if (!track) return;
+    track.enabled = !track.enabled;
+    setIsCameraOff(!track.enabled);
   };
 
   const shareScreen = async () => {
@@ -181,16 +192,14 @@ const Meeting = () => {
 
       const sender = peerConnection.current
         ?.getSenders()
-        .find(s => s.track?.kind === "video");
+        .find((s) => s.track?.kind === "video");
 
       sender?.replaceTrack(screenTrack);
 
-      // When screen share stops, switch back
       screenTrack.onended = () => {
         const videoTrack = localStream?.getVideoTracks()[0];
         sender?.replaceTrack(videoTrack);
       };
-
     } catch (err) {
       console.error("Screen share error:", err);
     }
@@ -199,18 +208,19 @@ const Meeting = () => {
   const sendMessage = () => {
     if (!chatInput.trim()) return;
 
-    const messageData = {
+    const data = {
+      roomId: groupId,
       user: user?.name || "User",
       text: chatInput,
     };
 
-    socket.emit("chatMessage", { roomId: groupId, ...messageData });
-    setMessages(prev => [...prev, messageData]);
+    socket.emit("chatMessage", data);
+    setMessages((prev) => [...prev, data]);
     setChatInput("");
   };
 
   const leaveMeeting = () => {
-    localStream?.getTracks().forEach(track => track.stop());
+    localStream?.getTracks().forEach((t) => t.stop());
     peerConnection.current?.close();
     navigate("/group-study");
   };
@@ -218,96 +228,51 @@ const Meeting = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-900 text-white">
 
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 bg-gray-800">
-        <h2 className="text-lg font-semibold">Meeting Room</h2>
-        <button
-          onClick={leaveMeeting}
-          className="bg-red-600 px-4 py-1 rounded"
-        >
+      {/* HEADER */}
+      <div className="flex justify-between p-4 bg-gray-800">
+        <h2>Meeting Room</h2>
+        <button onClick={leaveMeeting} className="bg-red-600 px-3 py-1 rounded">
           Leave
         </button>
       </div>
 
       <div className="flex flex-1">
 
-        {/* Video Section */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {!isStarted ? (
-            <button
-              onClick={initMedia}
-              className="bg-green-600 px-6 py-2 rounded"
-            >
-              Start Camera
-            </button>
-          ) : (
-            <>
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-96 rounded-lg mb-4 bg-black"
-              />
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className="w-96 rounded-lg bg-black"
-              />
-            </>
-          )}
+        {/* VIDEO */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <video ref={localVideoRef} autoPlay muted className="w-80 bg-black rounded" />
+          <video ref={remoteVideoRef} autoPlay className="w-80 bg-black rounded" />
         </div>
 
-        {/* Chat Section */}
-        <div className="w-80 bg-gray-800 p-4 flex flex-col">
-          <div className="flex-1 overflow-y-auto mb-2">
-            {messages.map((msg, index) => (
-              <div key={index} className="mb-2">
-                <strong>{msg.user}: </strong> {msg.text}
+        {/* CHAT */}
+        <div className="w-80 bg-gray-800 p-3 flex flex-col">
+          <div className="flex-1 overflow-y-auto">
+            {messages.map((m, i) => (
+              <div key={i}>
+                <b>{m.user}:</b> {m.text}
               </div>
             ))}
           </div>
 
-          <div className="flex">
+          <div className="flex mt-2">
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              className="flex-1 px-2 text-black rounded-l"
-              placeholder="Type message..."
+              className="flex-1 text-black px-2"
             />
-            <button
-              onClick={sendMessage}
-              className="bg-blue-600 px-3 rounded-r"
-            >
+            <button onClick={sendMessage} className="bg-blue-500 px-3">
               Send
             </button>
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      {isStarted && (
-        <div className="flex justify-center gap-4 p-4 bg-gray-800">
-          <button onClick={toggleMute} className="bg-gray-700 px-4 py-2 rounded">
-            {isMuted ? "Unmute" : "Mute"}
-          </button>
-
-          <button
-            onClick={toggleCamera}
-            className="bg-gray-700 px-4 py-2 rounded"
-          >
-            {isCameraOff ? "Camera On" : "Camera Off"}
-          </button>
-
-          <button
-            onClick={shareScreen}
-            className="bg-blue-600 px-4 py-2 rounded"
-          >
-            Share Screen
-          </button>
-        </div>
-      )}
+      {/* CONTROLS */}
+      <div className="flex justify-center gap-3 p-3 bg-gray-800">
+        <button onClick={toggleMute}>{isMuted ? "Unmute" : "Mute"}</button>
+        <button onClick={toggleCamera}>{isCameraOff ? "Camera On" : "Camera Off"}</button>
+        <button onClick={shareScreen}>Share Screen</button>
+      </div>
     </div>
   );
 };
