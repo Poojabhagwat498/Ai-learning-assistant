@@ -25,19 +25,27 @@ const GroupStudy = () => {
 
   // ================= FETCH =================
   useEffect(() => {
+    if (!token) {
+      toast.error("Please login again");
+      navigate("/login");
+      return;
+    }
 
     fetchGroups();
     fetchUsers();
   }, []);
 
   const fetchGroups = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
+
       const res = await axios.get(`${API}/groups`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setGroups(res.data);
     } catch (error) {
+      console.error(error);
       toast.error("Failed to fetch groups");
     } finally {
       setLoading(false);
@@ -49,8 +57,10 @@ const GroupStudy = () => {
       const res = await axios.get(`${API}/users/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setUsers(res.data);
     } catch (error) {
+      console.error(error);
       toast.error("Failed to fetch users");
     }
   };
@@ -73,11 +83,12 @@ const GroupStudy = () => {
       setGroupName("");
       fetchGroups();
     } catch (error) {
-      toast.error("Create failed");
+      console.error(error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Create failed");
     }
   };
 
-  // ================= SEND REQUEST (UPDATED) =================
+  // ================= SEND REQUEST =================
   const addMembers = async (groupId) => {
     const selected = selectedUsers[groupId] || [];
 
@@ -88,22 +99,36 @@ const GroupStudy = () => {
 
     try {
       await Promise.all(
-        selected.map((userId) =>
-          axios.post(
+        selected.map(async (userId) => {
+          return axios.post(
             `${API}/groups/${groupId}/request`,
             { userId },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-        )
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+        })
       );
 
-      toast.success("Request sent");
+      toast.success("Request sent successfully");
 
-      setSelectedUsers((prev) => ({ ...prev, [groupId]: [] }));
-      setOpenAddMember((prev) => ({ ...prev, [groupId]: false }));
+      setSelectedUsers((prev) => ({
+        ...prev,
+        [groupId]: [],
+      }));
 
+      setOpenAddMember((prev) => ({
+        ...prev,
+        [groupId]: false,
+      }));
     } catch (error) {
-      toast.error("Failed to send request");
+      console.error("REQUEST ERROR:", error.response?.data);
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to send request (User may already be invited)"
+      );
     }
   };
 
@@ -112,12 +137,15 @@ const GroupStudy = () => {
     try {
       await axios.delete(
         `${API}/groups/${groupId}/members/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
 
-      toast.success("Removed");
+      toast.success("Member removed");
       fetchGroups();
     } catch (error) {
+      console.error(error.response?.data);
       toast.error("Remove failed");
     }
   };
@@ -134,13 +162,13 @@ const GroupStudy = () => {
       toast.success("Group deleted");
       fetchGroups();
     } catch (error) {
+      console.error(error.response?.data);
       toast.error("Delete failed");
     }
   };
 
   // ================= JOIN VIDEO =================
   const joinGroup = (groupId) => {
-    // 🚀 Only navigate (Socket handled inside VideoRoom)
     navigate(`/video/${groupId}`);
   };
 
@@ -159,7 +187,7 @@ const GroupStudy = () => {
         </div>
 
         {/* CREATE GROUP */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border">
           <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
             <Plus size={18} /> Create New Group
           </h2>
@@ -170,56 +198,41 @@ const GroupStudy = () => {
               placeholder="Enter group name..."
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              className="flex-1 h-11 px-4 border-2 border-slate-200 rounded-xl focus:border-emerald-500 outline-none"
+              className="flex-1 h-11 px-4 border-2 rounded-xl"
             />
 
             <button
               onClick={createGroup}
-              className="h-11 px-5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600"
+              className="h-11 px-5 bg-emerald-500 text-white rounded-xl"
             >
               Create
             </button>
           </div>
         </div>
 
-        {/* LOADING */}
-        {loading && (
-          <p className="text-center text-slate-500">Loading groups...</p>
-        )}
-
-        {/* EMPTY */}
-        {!loading && groups.length === 0 && (
-          <p className="text-center text-slate-400">
-            No groups found 🚀
-          </p>
-        )}
-
-        {/* GROUP LIST */}
+        {/* GROUPS */}
         <div className="grid gap-6">
           {groups.map((group) => (
             <div
               key={group._id}
-              className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5"
+              className="bg-white p-6 rounded-2xl shadow-sm border space-y-4"
             >
-              {/* HEADER */}
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="font-semibold flex items-center gap-2">
                   <Users size={18} /> {group.name}
                 </h2>
 
                 <div className="flex gap-2">
-                  {/* 🎥 JOIN VIDEO */}
                   <button
                     onClick={() => joinGroup(group._id)}
-                    className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    className="p-2 bg-blue-500 text-white rounded"
                   >
                     <Video size={16} />
                   </button>
 
-                  {/* 🗑 DELETE */}
                   <button
                     onClick={() => deleteGroup(group._id)}
-                    className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                    className="p-2 bg-red-500 text-white rounded"
                   >
                     <Trash size={16} />
                   </button>
@@ -230,33 +243,31 @@ const GroupStudy = () => {
               <div>
                 <h3 className="font-medium mb-2">Members</h3>
 
-                <div className="space-y-2">
-                  {group.members?.length > 0 ? (
-                    group.members.map((member) => (
-                      <div
-                        key={member._id}
-                        className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg"
-                      >
-                        <span className="text-sm">
-                          {member.name} ({member.email})
-                        </span>
+                {group.members?.length > 0 ? (
+                  group.members.map((member) => (
+                    <div
+                      key={member._id}
+                      className="flex justify-between bg-slate-50 px-3 py-2 rounded"
+                    >
+                      <span>
+                        {member.name} ({member.email})
+                      </span>
 
-                        <button
-                          onClick={() =>
-                            removeMember(group._id, member._id)
-                          }
-                          className="text-red-500 text-xs hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-400">
-                      No members yet
-                    </p>
-                  )}
-                </div>
+                      <button
+                        onClick={() =>
+                          removeMember(group._id, member._id)
+                        }
+                        className="text-red-500 text-xs"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    No members yet
+                  </p>
+                )}
               </div>
 
               {/* ADD MEMBERS */}
@@ -267,12 +278,11 @@ const GroupStudy = () => {
                     [group._id]: !prev[group._id],
                   }))
                 }
-                className="flex items-center gap-2 text-emerald-600 font-medium"
+                className="flex items-center gap-2 text-emerald-600"
               >
                 <UserPlus size={16} /> Add Members
               </button>
 
-              {/* DROPDOWN */}
               {openAddMember[group._id] && (
                 <div className="flex gap-3">
                   <select
@@ -288,7 +298,7 @@ const GroupStudy = () => {
                         ),
                       }))
                     }
-                    className="flex-1 border rounded-lg p-2 max-h-32 overflow-y-auto"
+                    className="flex-1 border rounded p-2"
                   >
                     {users.map((user) => (
                       <option key={user._id} value={user._id}>
@@ -299,7 +309,7 @@ const GroupStudy = () => {
 
                   <button
                     onClick={() => addMembers(group._id)}
-                    className="bg-emerald-500 text-white px-4 rounded-lg hover:bg-emerald-600"
+                    className="bg-emerald-500 text-white px-4 rounded"
                   >
                     Send Request
                   </button>

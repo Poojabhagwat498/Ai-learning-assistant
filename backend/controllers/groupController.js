@@ -111,8 +111,10 @@ export const acceptRequest = async (req, res) => {
    io.to(request.receiver.toString()).emit("requestAccepted", {
   groupId: request.groupId,
 });
-
-    res.json({ message: "Joined group" });
+res.json({
+  message: "Joined group",
+  groupId: request.groupId,
+});
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

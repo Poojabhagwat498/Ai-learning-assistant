@@ -2,25 +2,37 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import socket from "../utils/socket"; // ✅ REQUIRED
+import { useNavigate } from "react-router-dom";
 
 const API = "http://localhost:8000/api";
+
+const navigate = useNavigate();
 
 const Requests = () => {
   const [requests, setRequests] = useState([]);
   const token = localStorage.getItem("token");
-
 useEffect(() => {
-  fetchRequests(); // ✅ IMPORTANT
+  fetchRequests();
 
   const handleNewRequest = () => {
-    console.log("🔥 New request received");
     fetchRequests();
   };
 
+  // ✅ AUTO REDIRECT WHEN ACCEPTED
+  const handleAccepted = ({ groupId }) => {
+    toast.success("Request accepted! Joining meeting...");
+
+    setTimeout(() => {
+      navigate(`/video/${groupId}`);
+    }, 1000);
+  };
+
   socket.on("newRequest", handleNewRequest);
+  socket.on("requestAccepted", handleAccepted);
 
   return () => {
     socket.off("newRequest", handleNewRequest);
+    socket.off("requestAccepted", handleAccepted);
   };
 }, []);
 
