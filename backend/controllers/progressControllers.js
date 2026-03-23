@@ -6,7 +6,7 @@ export const getDashboard = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-  
+    // ================= OVERVIEW =================
     const totalDocuments = await Document.countDocuments({ userId });
     const totalFlashcardSets = await Flashcard.countDocuments({ userId });
     const totalQuizzes = await Quiz.countDocuments({ userId });
@@ -16,6 +16,7 @@ export const getDashboard = async (req, res, next) => {
     });
 
     const flashcardSets = await Flashcard.find({ userId });
+
     let totalFlashcards = 0;
     let reviewedFlashcards = 0;
     let starredFlashcards = 0;
@@ -43,36 +44,42 @@ export const getDashboard = async (req, res, next) => {
           )
         : 0;
 
+    // ================= RECENT ACTIVITY =================
+
     const recentDocuments = await Document.find({ userId })
       .sort({ lastAccessed: -1 })
       .limit(5)
-      .select('title fileName lastAccessed status');
+      .select('_id title lastAccessed');
 
     const recentQuizzes = await Quiz.find({ userId })
-      .sort({ createdAt: -1 })
+      .sort({ completedAt: -1 }) // ✅ FIXED (was createdAt)
       .limit(5)
-      .populate('documentId', 'title')
-      .select('title score totalQuestions completedAt');
+      .select('_id title completedAt');
 
-    const studyStreak = Math.floor(Math.random() * 7) + 1; 
+    // ✅ IMPORTANT: FORMAT FOR FRONTEND
+    const recentActivity = {
+      documents: recentDocuments,
+      quizzes: recentQuizzes,
+    };
 
+    // ================= STREAK =================
+    const learningStreak = Math.floor(Math.random() * 7) + 1;
+
+    // ================= RESPONSE =================
     res.status(200).json({
       success: true,
-      data: {
-        overview: {
-          totalDocuments,
-          totalFlashcardSets,
-          totalFlashcards,
-          reviewedFlashcards,
-          starredFlashcards,
-          totalQuizzes,
-          completedQuizzes,
-          averageScore,
-          studyStreak,
-        },
-        recentDocuments,
-        recentQuizzes,
+      overview: {
+        totalDocuments,
+        totalFlashcards,
+        totalFlashcardSets,
+        reviewedFlashcards,
+        starredFlashcards,
+        totalQuizzes,
+        completedQuizzes,
+        averageScore,
+        learningStreak,
       },
+      recentActivity, // ✅ FIXED STRUCTURE
     });
   } catch (error) {
     next(error);

@@ -19,7 +19,10 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const response = await progressService.getDashboardData();
-        setDashboardData(response.data);
+
+        console.log("Dashboard API Response:", response.data); // ✅ DEBUG
+
+        setDashboardData(response);
       } catch (error) {
         console.error(error);
         toast.error("Failed to fetch dashboard data");
@@ -41,7 +44,7 @@ const Dashboard = () => {
     );
   }
 
-  /* ✅ Stats (now includes TrendingUp) */
+  /* ✅ Stats */
   const stats = [
     {
       label: "Total Documents",
@@ -69,22 +72,34 @@ const Dashboard = () => {
     },
   ];
 
+  /* ✅ SAFE DATE FORMATTER */
+  const formatDate = (date) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  };
+
+  /* ✅ FIXED ACTIVITIES */
   const activities = [
-    ...(dashboardData.recentActivity?.documents || []).map((doc) => ({
+    ...(dashboardData?.recentActivity?.documents || []).map((doc) => ({
       id: doc._id,
       type: "document",
-      title: doc.title,
-      timestamp: doc.lastAccessed,
+      title: doc.title || "Untitled Document",
+      timestamp: doc.lastAccessed || doc.updatedAt || doc.createdAt,
       link: `/documents/${doc._id}`,
     })),
-    ...(dashboardData.recentActivity?.quizzes || []).map((quiz) => ({
+
+    ...(dashboardData?.recentActivity?.quizzes || []).map((quiz) => ({
       id: quiz._id,
       type: "quiz",
-      title: quiz.title,
-      timestamp: quiz.lastAttempted,
+      title: quiz.title || "Untitled Quiz",
+      timestamp:
+        quiz.lastAttempted || quiz.updatedAt || quiz.createdAt,
       link: `/quizzes/${quiz._id}`,
     })),
-  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  ]
+    .filter((item) => item.timestamp) // ✅ remove invalid ones
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -159,10 +174,9 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-4">
                   <span className="text-xs text-slate-500">
-                    {activity.timestamp
-                      ? new Date(activity.timestamp).toLocaleString()
-                      : "—"}
+                    {formatDate(activity.timestamp)}
                   </span>
+
                   <Link
                     to={activity.link}
                     className="text-xs font-semibold text-emerald-600 hover:underline"

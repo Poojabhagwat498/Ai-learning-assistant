@@ -1,70 +1,81 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
-import socket from "../utils/socket"; // ✅ REQUIRED
+import socket from "../utils/socket";
 import { useNavigate } from "react-router-dom";
 
 const API = "http://localhost:8000/api";
 
-const navigate = useNavigate();
-
 const Requests = () => {
   const [requests, setRequests] = useState([]);
   const token = localStorage.getItem("token");
-useEffect(() => {
-  fetchRequests();
+  const navigate = useNavigate(); // ✅ FIX: moved inside component
 
-  const handleNewRequest = () => {
-    fetchRequests();
-  };
-
-  // ✅ AUTO REDIRECT WHEN ACCEPTED
-  const handleAccepted = ({ groupId }) => {
-    toast.success("Request accepted! Joining meeting...");
-
-    setTimeout(() => {
-      navigate(`/video/${groupId}`);
-    }, 1000);
-  };
-
-  socket.on("newRequest", handleNewRequest);
-  socket.on("requestAccepted", handleAccepted);
-
-  return () => {
-    socket.off("newRequest", handleNewRequest);
-    socket.off("requestAccepted", handleAccepted);
-  };
-}, []);
-
+  // ✅ FETCH REQUESTS
   const fetchRequests = async () => {
     try {
       const res = await axios.get(`${API}/groups/requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRequests(res.data);
-    } catch {
+    } catch (err) {
       toast.error("Failed to load requests");
     }
   };
 
-  const accept = async (id) => {
-    await axios.put(
-      `${API}/groups/requests/${id}/accept`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    toast.success("Joined group");
+  useEffect(() => {
     fetchRequests();
+
+    const handleNewRequest = () => {
+      fetchRequests();
+    };
+
+    // ✅ AUTO REDIRECT WHEN ACCEPTED
+    const handleAccepted = ({ groupId }) => {
+      toast.success("Request accepted! Joining meeting...");
+
+      setTimeout(() => {
+        navigate(`/video/${groupId}`);
+      }, 1000);
+    };
+
+    socket.on("newRequest", handleNewRequest);
+    socket.on("requestAccepted", handleAccepted);
+
+    return () => {
+      socket.off("newRequest", handleNewRequest);
+      socket.off("requestAccepted", handleAccepted);
+    };
+  }, [navigate]); // ✅ include navigate in deps
+
+  // ✅ ACCEPT REQUEST
+  const accept = async (id) => {
+    try {
+      await axios.put(
+        `${API}/groups/requests/${id}/accept`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Joined group");
+      fetchRequests();
+    } catch (err) {
+      toast.error("Failed to accept request");
+    }
   };
 
+  // ✅ REJECT REQUEST
   const reject = async (id) => {
-    await axios.put(
-      `${API}/groups/requests/${id}/reject`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    toast.success("Rejected");
-    fetchRequests();
+    try {
+      await axios.put(
+        `${API}/groups/requests/${id}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Rejected");
+      fetchRequests();
+    } catch (err) {
+      toast.error("Failed to reject request");
+    }
   };
 
   return (
