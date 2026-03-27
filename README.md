@@ -3,6 +3,7 @@
 An **AI-powered Learning Assistant** built using the **MERN Stack, WebRTC, Socket.IO, and Google Gemini AI** to enhance learning through intelligent content generation, real-time collaboration, and interactive study tools.
 
 🔗 **Live Demo:** https://ai-learning-assistant-frontend-phi.vercel.app/login
+
 💻 **GitHub Repo:** https://github.com/Poojabhagwat498/ai-learning-assistant
 
 ---
