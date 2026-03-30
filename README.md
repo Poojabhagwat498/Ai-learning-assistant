@@ -14,7 +14,7 @@ The AI Learning Assistant is a **full-stack web application** designed to act as
 
 ---
 
-## ✨ 🚀 Features
+## ✨🚀 Features
 
 ### 🔐 Authentication & User Management
 
