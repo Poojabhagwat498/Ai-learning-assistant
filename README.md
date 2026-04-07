@@ -141,7 +141,6 @@ npm install
 ```
 
 Create a `.env` file:
-
 ```
 PORT=5000
 MONGO_URI=your_mongodb_uri
@@ -216,7 +215,6 @@ Feel free to fork the repo and submit a pull request.
 ---
 
 ## ⭐ Support
-
 If you like this project, please ⭐ the repository and share it!
 
 ---
